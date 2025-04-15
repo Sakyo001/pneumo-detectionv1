@@ -1,0 +1,74 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id        String     @id @default(uuid())
+  email     String     @unique
+  doctorId  String?    @unique
+  password  String
+  role      UserRole
+  name      String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  patients  Patient[]  @relation("DoctorToPatient")
+  xrayScans XrayScan[] @relation("DoctorToScan")
+}
+
+model Patient {
+  id              String     @id @default(uuid())
+  name            String
+  referenceNumber String     @unique
+  dateOfBirth     DateTime
+  doctorId        String
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  doctor          User       @relation("DoctorToPatient", fields: [doctorId], references: [id])
+  xrayScans       XrayScan[]
+}
+
+model XrayScan {
+  id                String        @id @default(uuid())
+  referenceNumber   String        @unique
+  patientId         String
+  imageUrl          String
+  result            String?
+  status            String        @default("PENDING")
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  analysisResult    String?
+  confidenceScore   Float?
+  doctorId          String
+  pneumoniaType     String?
+  recommendedAction String?
+  severity          String?
+  letter            String?
+  metadata          ScanMetadata?
+  doctor            User          @relation("DoctorToScan", fields: [doctorId], references: [id])
+  patient           Patient       @relation(fields: [patientId], references: [id])
+}
+
+model ScanMetadata {
+  id                String   @id @default(uuid())
+  scanId            String   @unique
+  confidence        Float
+  pneumoniaType     String?
+  severity          String?
+  recommendedAction String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  scan              XrayScan @relation(fields: [scanId], references: [id], onDelete: Cascade)
+}
+
+enum UserRole {
+  ADMIN
+  DOCTOR
+  PATIENT
+}

@@ -1,0 +1,66 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../generated/prisma"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  ADMIN
+  DOCTOR
+  PATIENT
+}
+
+model User {
+  id        String     @id @default(uuid())
+  email     String     @unique
+  doctorId  String?    @unique
+  password  String     // This should be properly hashed in production
+  role      UserRole
+  name      String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  patients  Patient[]  @relation("DoctorToPatient")
+  xrayScans XrayScan[] @relation("DoctorToScan")
+}
+
+model Patient {
+  id              String     @id @default(uuid())
+  name            String
+  referenceNumber String     @unique
+  dateOfBirth     DateTime
+  doctorId        String
+  doctor          User       @relation("DoctorToPatient", fields: [doctorId], references: [id])
+  xrayScans       XrayScan[]
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+}
+
+model XrayScan {
+  id                 String   @id @default(uuid())
+  reference_number   String   @unique
+  patientId          String
+  patient            Patient  @relation(fields: [patientId], references: [id])
+  doctorId           String
+  doctor             User     @relation("DoctorToScan", fields: [doctorId], references: [id])
+  imageUrl           String
+  analysis_result    String?  // NORMAL, PNEUMONIA
+  pneumonia_type     String?  // BACTERIAL, VIRAL, etc.
+  severity           String?  // MILD, MODERATE, SEVERE
+  confidence_score   Float?
+  recommended_action String?
+  status             String   @default("PENDING") // PENDING, COMPLETED, REVIEWED
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
