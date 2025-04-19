@@ -86,17 +86,17 @@ const ScanDetailsPDF = ({ scan }: { scan: any }) => (
   <Document>
     <Page size="A4" style={styles.page}>
       <Text style={styles.header}>X-Ray Scan Report</Text>
-      <Text style={styles.subheader}>Reference: {scan.referenceNumber}</Text>
+      <Text style={styles.subheader}>Reference: {scan?.referenceNumber || 'N/A'}</Text>
       
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Patient Information</Text>
         <View style={styles.row}>
           <Text style={styles.label}>Name:</Text>
-          <Text style={styles.value}>{scan.patientName}</Text>
+          <Text style={styles.value}>{scan?.patientName || 'N/A'}</Text>
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>Date:</Text>
-          <Text style={styles.value}>{new Date(scan.date).toLocaleDateString()}</Text>
+          <Text style={styles.value}>{scan?.date ? new Date(scan.date).toLocaleDateString() : 'N/A'}</Text>
         </View>
       </View>
       
@@ -104,19 +104,19 @@ const ScanDetailsPDF = ({ scan }: { scan: any }) => (
         <Text style={styles.sectionTitle}>Scan Results</Text>
         <View style={styles.row}>
           <Text style={styles.label}>Diagnosis:</Text>
-          <Text style={styles.value}>{scan.result}</Text>
+          <Text style={styles.value}>{scan?.result || 'N/A'}</Text>
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>Confidence:</Text>
-          <Text style={styles.value}>{scan.confidence > 100 ? (scan.confidence / 100).toFixed(2) : scan.confidence}%</Text>
+          <Text style={styles.value}>{scan?.confidence ? (scan.confidence > 100 ? (scan.confidence / 100).toFixed(2) : scan.confidence) : 'N/A'}%</Text>
         </View>
-        {scan.pneumoniaType && (
+        {scan?.pneumoniaType && (
           <View style={styles.row}>
             <Text style={styles.label}>Type:</Text>
             <Text style={styles.value}>{scan.pneumoniaType}</Text>
           </View>
         )}
-        {scan.severity && (
+        {scan?.severity && (
           <View style={styles.row}>
             <Text style={styles.label}>Severity:</Text>
             <Text style={styles.value}>{scan.severity}</Text>
@@ -124,7 +124,7 @@ const ScanDetailsPDF = ({ scan }: { scan: any }) => (
         )}
       </View>
       
-      {scan.recommendedAction && (
+      {scan?.recommendedAction && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Recommendations</Text>
           <Text style={styles.value}>{scan.recommendedAction}</Text>
@@ -251,20 +251,22 @@ export default function ScanDetailsPage() {
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-800">X-Ray Scan Details</h2>
           <div className="flex space-x-4">
-            <PDFDownloadLink 
-              document={<ScanDetailsPDF scan={scan} />} 
-              fileName={`xray-scan-${scan?.referenceNumber || 'report'}.pdf`}
-              className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors"
-            >
-              {({ loading, error }) => (
-                <>
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  {loading ? 'Generating PDF...' : 'Export to PDF'}
-                </>
-              )}
-            </PDFDownloadLink>
+            {scan && (
+              <PDFDownloadLink 
+                document={<ScanDetailsPDF scan={scan} />} 
+                fileName={`xray-scan-${scan?.referenceNumber || 'report'}.pdf`}
+                className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors"
+              >
+                {({ loading, error }) => (
+                  <>
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    {loading ? 'Generating PDF...' : 'Export to PDF'}
+                  </>
+                )}
+              </PDFDownloadLink>
+            )}
           </div>
         </div>
         

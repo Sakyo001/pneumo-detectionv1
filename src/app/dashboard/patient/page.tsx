@@ -19,11 +19,33 @@ interface AnalysisResult {
   patient_name?: string;
 }
 
+// Error boundary component for catching runtime errors
+function ErrorFallback({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) {
+  return (
+    <div className="p-6 bg-red-50 border border-red-100 rounded-lg">
+      <h3 className="text-lg font-medium text-red-800 mb-2">Something went wrong</h3>
+      <p className="text-sm text-red-600 mb-4">{error.message}</p>
+      <button
+        onClick={resetErrorBoundary}
+        className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+      >
+        Try again
+      </button>
+    </div>
+  );
+}
+
 export default function PatientDashboard() {
   const [referenceNumber, setReferenceNumber] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [hasError, setHasError] = useState(false);
+
+  // Reset error state when component mounts
+  useEffect(() => {
+    setHasError(false);
+  }, []);
 
   const handleTrackScan = async () => {
     if (!referenceNumber.trim()) {
@@ -34,6 +56,7 @@ export default function PatientDashboard() {
     setIsLoading(true);
     setError("");
     setResult(null);
+    setHasError(false);
 
     try {
       const response = await fetch(`/api/analysis/${referenceNumber}`);
@@ -44,14 +67,47 @@ export default function PatientDashboard() {
       }
 
       const data = await response.json();
+      if (!data) {
+        throw new Error("No data received from server");
+      }
+      
+      // Validate important fields
+      if (!data.reference_number || !data.analysis_result) {
+        throw new Error("Incomplete data received from server");
+      }
+      
       setResult(data);
     } catch (err) {
       console.error('Error details:', err);
       setError(err instanceof Error ? err.message : "An error occurred");
+      setHasError(true);
     } finally {
       setIsLoading(false);
     }
   };
+
+  // If a fatal error occurred, show a simple error message
+  if (hasError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="max-w-md w-full bg-white rounded-xl shadow-sm border border-gray-50 p-8">
+          <h2 className="text-xl font-medium text-gray-800 mb-4">Error Loading Dashboard</h2>
+          <p className="text-gray-600 mb-6">
+            We encountered an error while loading your data. Please try again or contact support if the problem persists.
+          </p>
+          <div className="text-red-600 p-4 bg-red-50 rounded-lg mb-6">
+            {error}
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="w-full bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            Reload Page
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <main className="flex flex-col min-h-screen bg-gray-50">
@@ -69,7 +125,7 @@ export default function PatientDashboard() {
               transition={{ type: "spring", stiffness: 300 }}
             >
               <div className="mr-3 flex items-center justify-center w-8 h-8">
-                <Image src="/icons/logo.png" alt="Logo" width={20} height={20} />
+                <Image src="/icons/logo.png" alt="Logo" width={20} height={20} priority />
               </div>
               <h1 className="font-semibold text-gray-800 text-lg">MedRecord Hub</h1>
             </motion.div>
@@ -132,7 +188,6 @@ export default function PatientDashboard() {
                   onChange={(e) => setReferenceNumber(e.target.value)}
                   placeholder="Enter reference number provided by your doctor"
                   className="block w-full pl-12 pr-4 py-3.5 border text-gray-700 border-gray-200 rounded-lg leading-5 bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                  suppressHydrationWarning
                 />
               </div>
               {error && (
@@ -151,7 +206,6 @@ export default function PatientDashboard() {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className="bg-indigo-600 text-white px-8 py-3.5 rounded-lg hover:bg-indigo-700 transition-colors font-medium shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-              suppressHydrationWarning
             >
               {isLoading ? (
                 <>
@@ -189,12 +243,18 @@ export default function PatientDashboard() {
                 whileHover={{ scale: 1.02 }}
                 className="relative aspect-square rounded-lg overflow-hidden bg-gray-50"
               >
-                <Image
-                  src={result.image_url}
-                  alt="X-ray Image"
-                  fill
-                  className="object-contain"
-                />
+                {result.image_url ? (
+                  <Image
+                    src={result.image_url}
+                    alt="X-ray Image"
+                    fill
+                    className="object-contain"
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-gray-400">No image available</p>
+                  </div>
+                )}
               </motion.div>
               
               {/* Analysis Details */}
@@ -214,7 +274,9 @@ export default function PatientDashboard() {
                       {result.analysis_result}
                     </span>
                     <span className="text-sm text-gray-500">
-                      Confidence: {(result.confidence_score >= 1 ? result.confidence_score : result.confidence_score * 100).toFixed(2)}%
+                      Confidence: {(result.confidence_score !== undefined && result.confidence_score !== null) ? 
+                        ((result.confidence_score >= 1 ? result.confidence_score : result.confidence_score * 100).toFixed(2) + "%") : 
+                        "N/A"}
                     </span>
                   </div>
                   
@@ -241,10 +303,10 @@ export default function PatientDashboard() {
                 >
                   <h4 className="text-lg font-medium text-gray-800 mb-2">Details</h4>
                   <div className="space-y-2 text-sm text-gray-600">
-                    <p><span className="font-medium">Reference Number:</span> {result.reference_number}</p>
+                    <p><span className="font-medium">Reference Number:</span> {result.reference_number || 'N/A'}</p>
                     <p><span className="font-medium">Patient Name:</span> {result.patient_name || 'Not provided'}</p>
-                    <p><span className="font-medium">Analyzed By:</span> {result.doctor_name}</p>
-                    <p><span className="font-medium">Date:</span> {new Date(result.created_at).toLocaleDateString()}</p>
+                    <p><span className="font-medium">Analyzed By:</span> {result.doctor_name || 'N/A'}</p>
+                    <p><span className="font-medium">Date:</span> {result.created_at ? new Date(result.created_at).toLocaleDateString() : 'N/A'}</p>
                   </div>
                 </motion.div>
                 

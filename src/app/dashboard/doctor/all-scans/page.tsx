@@ -608,7 +608,7 @@ export default function AllScansPage() {
                 <div className="mr-2 flex items-center justify-center w-7 h-7">
                   <Image src="/icons/logo.png" alt="Logo" width={16} height={16} />
                 </div>
-                <span className="text-gray-500 text-sm">© 2023 MedRecord Hub. All rights reserved.</span>
+                <span className="text-gray-500 text-sm">© 2025 MedRecord Hub. All rights reserved.</span>
               </div>
             </div>
           </div>

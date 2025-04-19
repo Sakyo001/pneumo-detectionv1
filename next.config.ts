@@ -1,9 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Allow any host in dev environment
+  // Configure valid dev indicators
   devIndicators: {
-    autoPrerender: false,
+    buildActivity: true,
   },
 };
 

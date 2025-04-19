@@ -211,7 +211,7 @@ function DonutChart({ normalCount, pneumoniaCount }: { normalCount: number; pneu
       </svg>
       
       {/* Legend */}
-      <div className="absolute -bottom-16 left-0 right-0">
+      <div className="absolute -bottom-14 left-0 right-0">
         <div className="flex justify-center space-x-6 text-sm">
           <div className="flex items-center">
             <div className="w-3 h-3 bg-green-500 rounded-full mr-1"></div>
