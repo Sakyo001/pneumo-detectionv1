@@ -19,6 +19,14 @@ import torch
 from torchvision import transforms
 from model import PneumoniaModel, SimpleConvNet
 
+# Import EfficientNet model if available
+try:
+    from efficientnet_model import EfficientNetModel, get_efficientnet
+    EFFICIENTNET_AVAILABLE = True
+except ImportError:
+    EFFICIENTNET_AVAILABLE = False
+    print("Warning: EfficientNet model not available. Please run with --model_type resnet or simple.")
+
 def preprocess_image(image_path, transform):
     """
     Preprocess a single image for inference
@@ -251,156 +259,129 @@ def get_deterministic_result(image_path, reference_number=None):
     return result
 
 def main():
-    """
-    Main function for inference script
-    """
-    # Parse command line arguments
-    parser = argparse.ArgumentParser(description='Run inference with pneumonia detection model')
-    parser.add_argument('--model_path', type=str, required=True, help='Path to model file')
-    parser.add_argument('--image_path', type=str, required=True, help='Path to image file')
-    parser.add_argument('--model_type', type=str, default='cnn', help='Model type (cnn, resnet, efficientnet, pytorch)')
-    parser.add_argument('--reference_number', type=str, default=None, help='Patient reference number')
-    parser.add_argument('--patient_name', type=str, default=None, help='Patient name')
-    parser.add_argument('--patient_age', type=str, default=None, help='Patient age')
-    parser.add_argument('--patient_gender', type=str, default=None, help='Patient gender')
+    parser = argparse.ArgumentParser(description='Inference for Pneumonia Detection Model')
+    parser.add_argument('--model_path', type=str, required=False,
+                        help='Path to the trained model checkpoint')
+    parser.add_argument('--input_dir', type=str, default=None,
+                        help='Directory containing input images')
+    parser.add_argument('--input_image', type=str, default=None,
+                        help='Single input image path')
+    parser.add_argument('--output_dir', type=str, default='inference_output',
+                        help='Directory to save inference results')
+    parser.add_argument('--batch_size', type=int, default=32,
+                        help='Batch size for processing multiple images')
+    parser.add_argument('--visualize', action='store_true',
+                        help='Visualize predictions')
+    parser.add_argument('--gradcam', action='store_true',
+                        help='Apply Grad-CAM visualization')
+    parser.add_argument('--model_type', type=str, choices=['resnet', 'simple', 'efficientnet'], default='resnet',
+                        help='Type of model to use')
+    parser.add_argument('--variant', type=str, choices=['b0', 'b1', 'b2', 'b3'], default='b0',
+                        help='EfficientNet variant (only used with --model_type efficientnet)')
+    parser.add_argument('--mock_data', action='store_true',
+                        help='Generate mock data without a model for testing')
     
     args = parser.parse_args()
     
-    # Check if model file exists
-    if not os.path.exists(args.model_path):
-        print("Model file not found, using mock prediction")
-        result = get_deterministic_result(args.image_path, args.reference_number)
-        print(json.dumps(result, indent=2))
-        return
+    # Set device
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Using device: {device}")
     
-    # Check if image file exists
-    if not os.path.exists(args.image_path):
-        print("Image file not found")
-        result = {
-            "error": "Image file not found",
-            "usingMock": True
-        }
-        print(json.dumps(result, indent=2))
-        return
+    # Create output directory
+    os.makedirs(args.output_dir, exist_ok=True)
     
-    try:
-        # Try to import deep learning libraries - these may fail if not installed
-        try:
-            import torch
-            import torchvision
-            HAS_TORCH = True
-        except ImportError:
-            print("PyTorch not found, using mock prediction")
-            HAS_TORCH = False
+    # Preprocessing transform
+    transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ])
+    
+    # Load model if not using mock data
+    if not args.mock_data:
+        if args.model_path is None:
+            print("Error: --model_path is required when not using --mock_data")
+            sys.exit(1)
             
-        # If torch is not available, use mock prediction
-        if not HAS_TORCH:
-            result = get_deterministic_result(args.image_path, args.reference_number)
-            print(json.dumps(result, indent=2))
-            return
-            
-        # Start timing
-        start_time = time.time()
+        if not os.path.exists(args.model_path):
+            print(f"Error: Model path {args.model_path} does not exist")
+            sys.exit(1)
         
-        # Set device
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        print(f"Using device: {device}")
+        print(f"Loading model from {args.model_path}")
         
-        # Load model based on type
-        if args.model_type.lower() in ['pytorch', 'pth']:
-            try:
-                # Load PyTorch model
-                model = PneumoniaModel(pretrained=False, freeze_backbone=False)
-                # Handle loading with map_location to ensure it loads on the correct device
-                state_dict = torch.load(args.model_path, map_location=device)
-                model.load_state_dict(state_dict)
-                model.to(device)
-                model.eval()
-                print(f"Loaded PyTorch model from {args.model_path}")
-            except Exception as model_error:
-                print(f"Error loading model: {model_error}")
-                print("Trying alternative model loading approach...")
-                try:
-                    # Try loading with SimpleConvNet
-                    model = SimpleConvNet()
-                    state_dict = torch.load(args.model_path, map_location=device)
-                    model.load_state_dict(state_dict)
-                    model.to(device)
-                    model.eval()
-                    print(f"Loaded SimpleConvNet model from {args.model_path}")
-                except Exception as fallback_error:
-                    print(f"Fallback model loading failed: {fallback_error}")
-                    result = get_deterministic_result(args.image_path, args.reference_number)
-                    result["error"] = f"Model loading failed: {fallback_error}"
-                    print(json.dumps(result, indent=2))
-                    return
+        if args.model_type == 'resnet':
+            model = PneumoniaModel(pretrained=False)
+            model.load_state_dict(torch.load(args.model_path, map_location=device))
+        elif args.model_type == 'simple':
+            model = SimpleConvNet()
+            model.load_state_dict(torch.load(args.model_path, map_location=device))
+        elif args.model_type == 'efficientnet':
+            if not EFFICIENTNET_AVAILABLE:
+                print("Error: EfficientNet model is not available. Please check that efficientnet_model.py exists.")
+                sys.exit(1)
+            print(f"Loading EfficientNet-{args.variant} model")
+            model = get_efficientnet(variant=args.variant, pretrained=False)
+            model.load_state_dict(torch.load(args.model_path, map_location=device))
         else:
-            print(f"Unsupported model type: {args.model_type}, using mock prediction")
-            result = get_deterministic_result(args.image_path, args.reference_number)
-            print(json.dumps(result, indent=2))
-            return
+            print(f"Error: Unknown model type {args.model_type}")
+            sys.exit(1)
         
-        # Preprocess image
-        transform = transforms.Compose([
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ])
+        model = model.to(device)
+        model.eval()
         
-        image_tensor = preprocess_image(args.image_path, transform)
-        
-        # Make prediction
-        predicted_class, probabilities = predict_image(model, image_tensor, device)
-        
-        # Process results
-        processing_time = time.time() - start_time
-        diagnosis = "Pneumonia" if predicted_class == 1 else "Normal"
-        confidence = float(probabilities[predicted_class]) * 100
-        
-        # Create result dictionary
-        result = {
-            "diagnosis": diagnosis,
-            "confidence": round(confidence),
-            "processingTime": round(processing_time, 2),
-            "probabilities": {
-                "normal": round(float(probabilities[0]) * 100),
-                "pneumonia": round(float(probabilities[1]) * 100)
-            }
-        }
-        
-        # Add pneumonia specific info if positive
-        if diagnosis == "Pneumonia":
-            # Determine pneumonia type based on confidence
-            pneumonia_type = "Bacterial" if confidence > 75 else "Viral"
-            # Determine severity based on confidence
-            if confidence > 90:
-                severity = "Severe"
-                severity_desc = "Severe pneumonia with significant lung involvement."
-                action = "Immediate medical consultation and treatment recommended."
-            elif confidence > 80:
-                severity = "Moderate"
-                severity_desc = "Moderate pneumonia with partial lung involvement."
-                action = "Medical consultation recommended to determine appropriate treatment."
-            else:
-                severity = "Mild"
-                severity_desc = "Mild pneumonia with limited lung involvement."
-                action = "Monitor symptoms and consult with a healthcare provider."
+        class_names = ['Normal', 'Pneumonia']
+    
+    # Process single image
+    if args.input_image:
+        if not os.path.exists(args.input_image):
+            print(f"Error: Input image {args.input_image} does not exist")
+            sys.exit(1)
+            
+        if args.mock_data:
+            result = get_deterministic_result(args.input_image)
+            print(f"\nPrediction for {args.input_image}:")
+            print(f"Class: {result['class_name']} (confidence: {result['confidence']:.2f})")
+            
+            if args.visualize:
+                plot_mock_visualization(args.input_image, 
+                                      result['class_id'], 
+                                      [1-result['confidence'], result['confidence']], 
+                                      ['Normal', 'Pneumonia'],
+                                      os.path.join(args.output_dir, 'prediction.png'))
+        else:
+            image_tensor = preprocess_image(args.input_image, transform)
+            pred_class, probabilities = predict_image(model, image_tensor, device)
+            
+            print(f"\nPrediction for {args.input_image}:")
+            print(f"Class: {class_names[pred_class]} (confidence: {probabilities[pred_class]:.2f})")
+            
+            if args.visualize:
+                output_path = os.path.join(args.output_dir, 'prediction.png')
+                visualize_prediction(args.input_image, pred_class, probabilities, class_names, output_path)
                 
-            result["pneumoniaType"] = pneumonia_type
-            result["severity"] = severity
-            result["severityDescription"] = severity_desc
-            result["recommendedAction"] = action
+            if args.gradcam:
+                try:
+                    visualization = apply_gradcam(model, image_tensor, pred_class)
+                    output_path = os.path.join(args.output_dir, 'gradcam.png')
+                    plt.imsave(output_path, visualization)
+                    print(f"Grad-CAM visualization saved to {output_path}")
+                except Exception as e:
+                    print(f"Error applying Grad-CAM: {e}")
+    
+    # Process all images in a directory
+    elif args.input_dir:
+        if not os.path.exists(args.input_dir):
+            print(f"Error: Input directory {args.input_dir} does not exist")
+            sys.exit(1)
+            
+        if args.mock_data:
+            process_directory_with_mock_data(args.input_dir, args.output_dir)
         else:
-            result["recommendedAction"] = "No pneumonia detected. Regular health maintenance recommended."
-        
-        print(json.dumps(result, indent=2))
-        
-    except Exception as e:
-        # If anything goes wrong, use mock prediction
-        print(f"Error: {str(e)}")
-        result = get_deterministic_result(args.image_path, args.reference_number)
-        result["error"] = str(e)
-        print(json.dumps(result, indent=2))
+            batch_inference(model, args.input_dir, args.output_dir, args.model_type, args.batch_size)
+    
+    else:
+        print("Error: Either --input_image or --input_dir must be specified")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
