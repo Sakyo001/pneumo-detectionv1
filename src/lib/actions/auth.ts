@@ -24,7 +24,9 @@ export async function login(email: string, password: string, role: 'ADMIN' | 'DO
       return { success: false, message: 'Invalid credentials' };
     }
 
-    cookies().set('userId', user.id, {
+    // Await the cookies() function before calling set()
+    const cookieStore = await cookies();
+    cookieStore.set('userId', user.id, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -39,12 +41,16 @@ export async function login(email: string, password: string, role: 'ADMIN' | 'DO
 }
 
 export async function logout() {
-  cookies().delete('userId');
+  // Await the cookies() function before calling delete()
+  const cookieStore = await cookies();
+  cookieStore.delete('userId');
   redirect('/');
 }
 
 export async function getUserFromCookie() {
-  const userId = cookies().get('userId')?.value;
+  // Await the cookies() function before calling get()
+  const cookieStore = await cookies();
+  const userId = cookieStore.get('userId')?.value;
   
   if (!userId) {
     return null;

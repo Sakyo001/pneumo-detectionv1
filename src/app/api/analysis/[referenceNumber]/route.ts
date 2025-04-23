@@ -1,19 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { Prisma } from '@prisma/client';
 
 export async function GET(
-  request: NextRequest,
-  { params }: { params: { referenceNumber: string } }
+  request: Request,
+  { params }: { params: Promise<{ referenceNumber: string }> }
 ) {
   try {
-    console.log('Received request for reference number:', params.referenceNumber);
-    
-    const referenceNumber = params.referenceNumber;
+    const resolvedParams = await params;
+    const { referenceNumber } = resolvedParams;
+    console.log('Received request for reference number:', referenceNumber);
     
     if (!referenceNumber) {
       console.log('No reference number provided');
-      return NextResponse.json(
+      return Response.json(
         { error: 'Reference number is required' },
         { status: 400 }
       );
@@ -25,7 +24,7 @@ export async function GET(
       console.log('Database connection successful');
     } catch (dbError) {
       console.error('Database connection failed:', dbError);
-      return NextResponse.json(
+      return Response.json(
         { error: 'Database connection failed' },
         { status: 500 }
       );
@@ -51,12 +50,12 @@ export async function GET(
     } catch (queryError) {
       console.error('Database query failed:', queryError);
       if (queryError instanceof Prisma.PrismaClientKnownRequestError) {
-        return NextResponse.json(
+        return Response.json(
           { error: `Database query failed: ${queryError.message}` },
           { status: 500 }
         );
       }
-      return NextResponse.json(
+      return Response.json(
         { error: 'Failed to fetch data from database' },
         { status: 500 }
       );
@@ -66,7 +65,7 @@ export async function GET(
 
     if (!xrayScan) {
       console.log('No X-ray scan found for reference number:', referenceNumber);
-      return NextResponse.json(
+      return Response.json(
         { error: 'No analysis found for this reference number' },
         { status: 404 }
       );
@@ -88,10 +87,10 @@ export async function GET(
     };
 
     console.log('Sending response:', result);
-    return NextResponse.json(result);
+    return Response.json(result);
   } catch (error) {
     console.error('Error in GET /api/analysis/[referenceNumber]:', error);
-    return NextResponse.json(
+    return Response.json(
       { error: 'Failed to fetch analysis results', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );

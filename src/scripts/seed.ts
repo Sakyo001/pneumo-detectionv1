@@ -31,6 +31,7 @@ async function main() {
     data: {
       referenceNumber: `XR-${timestamp}-${random}`,
       patientId: patient.id,
+      doctorId: doctor.id,
       imageUrl: '/uploads/xray-sample.jpg',
       result: 'Pneumonia',
       status: 'COMPLETED',

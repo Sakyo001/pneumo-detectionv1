@@ -66,7 +66,13 @@ async function seedDatabase() {
 }
 
 export default async function SetupPage() {
-  let result;
+  // Initialize result with default values to prevent undefined errors
+  let result = {
+    adminCreated: false,
+    doctorCreated: false,
+    adminCount: 0,
+    doctorCount: 0
+  };
   let error = null;
   
   try {
@@ -78,7 +84,8 @@ export default async function SetupPage() {
     result = await seedDatabase();
   } catch (err) {
     console.error("Setup error:", err);
-    error = err.message;
+    // Add type guard to handle unknown error type
+    error = err instanceof Error ? err.message : String(err);
   }
   
   return (

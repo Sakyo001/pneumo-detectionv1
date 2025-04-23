@@ -13,7 +13,9 @@ export default async function DebugPage() {
       const result = await prisma.$queryRaw`SELECT 1 as test`;
       dbTestResult = `Connection successful: ${JSON.stringify(result)}`;
     } catch (err) {
-      dbTestResult = `Connection error: ${err.message}`;
+      // Add type guard for the error
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      dbTestResult = `Connection error: ${errorMessage}`;
       throw err;
     }
     
@@ -35,11 +37,16 @@ export default async function DebugPage() {
       const users = await prisma.user.findMany();
       createUserResult += `\nTotal users: ${users.length}\nUsers: ${JSON.stringify(users.map(u => ({ id: u.id, email: u.email, name: u.name })))}`;
     } catch (err) {
-      createUserResult = `User creation error: ${err.message}`;
+      // Add type guard for the error
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      createUserResult = `User creation error: ${errorMessage}`;
       throw err;
     }
   } catch (error) {
-    errorMessage = `${error.name}: ${error.message}\n${error.stack}`;
+    // Add type guard for the error
+    errorMessage = error instanceof Error 
+      ? `${error.name}: ${error.message}\n${error.stack}` 
+      : String(error);
   }
   
   return (

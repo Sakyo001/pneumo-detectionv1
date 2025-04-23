@@ -1,45 +1,37 @@
-import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { cookies } from 'next/headers';
 
 /**
  * Fast, lightweight endpoint to get current user info
  * Used by the upload-xray page to quickly display doctor name
  */
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    // Get user ID from cookie
-    const cookieStore = cookies();
+    // Get user ID from cookie - await the cookies Promise
+    const cookieStore = await cookies();
     const userId = cookieStore.get("userId");
     const userRole = cookieStore.get("userRole");
     const userName = cookieStore.get("userName");
 
     if (!userId || !userRole) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          message: "User not authenticated" 
-        }, 
+      return Response.json(
+        { success: false, message: "Not authenticated" },
         { status: 401 }
       );
     }
 
-    // Return basic user info from cookies
-    // This is optimized to be very lightweight compared to a database query
-    return NextResponse.json({
+    // Return user info
+    return Response.json({
       success: true,
       user: {
         id: userId.value,
         role: userRole.value,
-        name: userName?.value || "Doctor" // Default if not in cookie
+        name: userName?.value || "User"
       }
     });
   } catch (error) {
-    console.error("Error retrieving user data:", error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        message: "Failed to retrieve user data" 
-      }, 
+    console.error("Error getting user info:", error);
+    return Response.json(
+      { success: false, message: "Server error" },
       { status: 500 }
     );
   }

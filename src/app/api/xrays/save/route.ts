@@ -1,14 +1,13 @@
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { prisma } from "@/lib/db";
 import { getUserFromCookie } from "@/lib/auth";
 
-export async function POST(request) {
+export async function POST(request: Request) {
   try {
     // Get the current doctor from the session
     const user = await getUserFromCookie();
     
     if (!user || user.role !== 'DOCTOR') {
-      return NextResponse.json(
+      return Response.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
@@ -19,7 +18,7 @@ export async function POST(request) {
     
     // Validate required fields
     if (!data.patientName || !data.referenceNumber) {
-      return NextResponse.json(
+      return Response.json(
         { error: "Missing required fields" },
         { status: 400 }
       );
@@ -53,7 +52,7 @@ export async function POST(request) {
       }
     } catch (error) {
       console.error("Error finding/creating patient:", error);
-      return NextResponse.json(
+      return Response.json(
         { error: "Failed to process patient data" },
         { status: 500 }
       );
@@ -76,25 +75,26 @@ export async function POST(request) {
             patientGender: data.patientGender,
             patientNotes: data.patientNotes
           }),
-          status: "COMPLETED"
+          status: "COMPLETED",
+          doctorId: user.id
         }
       });
       
-      return NextResponse.json({ 
+      return Response.json({ 
         success: true, 
         message: "X-ray data saved successfully",
         xrayId: xrayScan.id
       });
     } catch (error) {
       console.error("Error creating X-ray record:", error);
-      return NextResponse.json(
+      return Response.json(
         { error: "Failed to save X-ray data" },
         { status: 500 }
       );
     }
   } catch (error) {
     console.error("Error saving X-ray data:", error);
-    return NextResponse.json(
+    return Response.json(
       { error: "Failed to save X-ray data" },
       { status: 500 }
     );

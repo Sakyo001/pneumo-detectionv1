@@ -1,10 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Configure valid dev indicators
-  devIndicators: {
-    buildActivity: true,
-  },
+  // This space can be used for other valid Next.js config options
 };
 
 export default nextConfig;

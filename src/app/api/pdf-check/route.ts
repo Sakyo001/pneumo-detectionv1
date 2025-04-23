@@ -1,30 +1,28 @@
-import { NextRequest, NextResponse } from 'next/server';
-
-// Simple endpoint to check if PDF generation is available
-export async function HEAD(request: NextRequest) {
+// Use standard Request/Response
+export async function HEAD(request: Request) {
   try {
     // Check if SWC helpers module is available with the right exports
     if (typeof window === 'undefined') { // Only on server-side
       try {
         // Try to dynamically import without actually loading the PDF generator
         await import('@swc/helpers');
-        return new NextResponse(null, { status: 200 });
+        return new Response(null, { status: 200 });
       } catch (err) {
         console.error('SWC helpers check failed:', err);
-        return new NextResponse(null, { status: 503 }); // Service Unavailable
+        return new Response(null, { status: 503 }); // Service Unavailable
       }
     }
     
     // Return success for client-side
-    return new NextResponse(null, { status: 200 });
+    return new Response(null, { status: 200 });
   } catch (error) {
     console.error('Error in PDF availability check:', error);
-    return new NextResponse(null, { status: 503 }); // Service Unavailable
+    return new Response(null, { status: 503 }); // Service Unavailable
   }
 }
 
 // For GET requests - provide more detailed info
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     // Check if PDF generation is available
     let pdfAvailable = true;
@@ -47,12 +45,12 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    return NextResponse.json({
+    return Response.json({
       pdfAvailable,
       errorMessage
     }, { status: pdfAvailable ? 200 : 503 });
   } catch (error) {
-    return NextResponse.json({
+    return Response.json({
       pdfAvailable: false,
       errorMessage: error instanceof Error ? error.message : 'Unknown error checking PDF availability'
     }, { status: 503 });

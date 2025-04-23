@@ -7,15 +7,11 @@ declare global {
   var prisma: PrismaClient | undefined;
 }
 
-// Configure Prisma client with retry logic
-const prismaClientOptions = {
-  log: ['error', 'warn'],
-  // Add 3-second connection timeout
-  connectionTimeout: 3000,
-};
+// Define the appropriate log level type
+type PrismaLogLevel = 'query' | 'info' | 'warn' | 'error';
 
 // Create a singleton to avoid multiple connections in dev
-const prismaSingleton = global.prisma || new PrismaClient(prismaClientOptions);
+const prismaSingleton = global.prisma || new PrismaClient();
 
 // Add connection retry logic
 const connectWithRetry = async (retries = 5, delay = 1000) => {

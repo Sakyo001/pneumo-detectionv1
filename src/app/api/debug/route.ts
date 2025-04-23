@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 
 export async function GET() {
@@ -18,7 +17,7 @@ export async function GET() {
       }
     });
     
-    return NextResponse.json({ 
+    return Response.json({ 
       success: true, 
       message: "Database connection successful",
       users,
@@ -26,10 +25,13 @@ export async function GET() {
     });
   } catch (error) {
     console.error("Database error:", error);
-    return NextResponse.json({ 
+    // Type guard to safely access error.message
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    
+    return Response.json({ 
       success: false, 
       message: "Database error",
-      error: error.message
+      error: errorMessage
     }, { status: 500 });
   }
 } 

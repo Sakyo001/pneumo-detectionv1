@@ -1,28 +1,30 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
 import { cookies } from "next/headers";
+import { prisma } from "@/lib/db";
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    // Ensure params is properly awaited
-    const { id: scanId } = params;
+    // Await the params to resolve the promise
+    const resolvedParams = await params;
+    const { id: scanId } = resolvedParams;
     
     if (!scanId) {
-      return NextResponse.json(
+      return Response.json(
         { 
-          success: false, 
-          message: "Scan ID is required" 
-        }, 
+          error: "Scan ID is required"
+        },
         { status: 400 }
       );
     }
     
-    // Get doctor ID from cookie for authorization
-    const cookieStore = await cookies();
-    const userId = cookieStore.get("userId")?.value;
+    // In Next.js 15, cookies() returns a Promise that needs to be awaited
+    const cookiesList = await cookies();
+    const userId = cookiesList.get("userId")?.value;
     
     if (!userId) {
-      return NextResponse.json(
+      return Response.json(
         { 
           success: false, 
           message: "Not authenticated" 
@@ -49,7 +51,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     
     // Check if scan exists
     if (!scan) {
-      return NextResponse.json(
+      return Response.json(
         { 
           success: false, 
           message: "Scan not found" 
@@ -60,7 +62,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     
     // Ensure the doctor has access to this scan
     if (scan.patient.doctorId !== userId) {
-      return NextResponse.json(
+      return Response.json(
         { 
           success: false, 
           message: "You don't have permission to view this scan" 
@@ -84,13 +86,13 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       status: scan.status
     };
     
-    return NextResponse.json({
+    return Response.json({
       success: true,
       data: formattedScan
     });
   } catch (error) {
     console.error("Error fetching scan details:", error);
-    return NextResponse.json(
+    return Response.json(
       { 
         success: false, 
         message: "Failed to fetch scan details" 
